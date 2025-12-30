@@ -84,13 +84,13 @@ def get_today_git_commit_messages(args: GitWorkSummaryArgs) -> List[str]:
     return commit_messages
 
 
-def summarize_git_work(commit_messages: List[str]) -> str:
+def summarize_git_work(last_days, commit_messages: List[str]) -> str:
     client = OpenAI()
-    prompt = "Here are today's git commit messages:\n\n"
+    prompt = f"Here are the git commit messages from the last {last_days} days:\n\n"
     for msg in commit_messages:
         prompt += f"- {msg}\n"
     prompt += (
-        "\nPlease provide a concise summary and key points of the work done today."
+        f"\nPlease provide a concise summary and key points of the work done in the last {last_days} days."
     )
     response = client.chat.completions.create(
         model="gpt-5.2-2025-12-11",
@@ -110,6 +110,6 @@ if __name__ == "__main__":
     if not sample_commits:
         print(f"No git commits found for the last {args.last_days} days.")
     else:
-        summary = summarize_git_work(sample_commits)
+        summary = summarize_git_work(args.last_days, sample_commits)
         print("Git Work Summary:")
         print(summary)
