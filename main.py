@@ -4,6 +4,7 @@ import subprocess
 from datetime import datetime, timedelta
 import argparse
 from dataclasses import dataclass
+import os
 
 
 @dataclass
@@ -48,16 +49,26 @@ def parse_arguments() -> GitWorkSummaryArgs:
 
 system_prompt = """You are a helpful assistant that summarizes git commit messages into concise summaries and key points.
 1. please return chinese.
+2. Focus on the main tasks accomplished, features added, bugs fixed, and any significant changes.
+3. Structure the summary with bullet points for clarity.
+4. Keep the summary brief and to the point.
+5. Avoid technical jargon unless necessary.
+6. Highlight any collaborative efforts or important contributions from team members.
+7. Ensure the summary is easy to understand for stakeholders who may not be familiar with technical details.
+8. Use a professional and neutral tone.
+9. distinguish projects if multiple projects are provided.
 """
 
 
-def get_today_git_commit_messages(args: GitWorkSummaryArgs) -> List[str]:
-    commit_messages = []
+def get_today_git_commit_messages(args: GitWorkSummaryArgs) -> dict[str, List[str]]:
+    commit_messages = {}
     last_days = args.last_days
     last_day_format = (datetime.now() - timedelta(days=last_days)).strftime("%Y-%m-%d")
 
     for project in args.projects:
         # pull the latest changes
+        project_name = os.path.basename(project)
+        print(f"Processing project: {project_name} at {project}")
         subprocess.run(["git", "-C", project, "pull"], check=True)
         try:
             cmd = [
@@ -77,18 +88,19 @@ def get_today_git_commit_messages(args: GitWorkSummaryArgs) -> List[str]:
                 print(f"No commits found for {project} since {last_day_format}.")
                 continue
             print(f"Commits from {project} since {last_day_format}: {messages}")
-            commit_messages.extend(messages.split("\n"))
+            commit_messages[project_name] = messages.split("\n")
         except subprocess.CalledProcessError as e:
             print(f"Error retrieving commits from {project}: {e}")
-
     return commit_messages
 
 
-def summarize_git_work(last_days, commit_messages: List[str]) -> str:
+def summarize_git_work(last_days, commit_messages: dict[str, List[str]]) -> str:
     client = OpenAI()
     prompt = f"Here are the git commit messages from the last {last_days} days:\n\n"
-    for msg in commit_messages:
-        prompt += f"- {msg}\n"
+    for project, messages in commit_messages.items():
+        prompt += f"Project: {project}\n"
+        for msg in messages:
+            prompt += f"- {msg}\n"
     prompt += (
         f"\nPlease provide a concise summary and key points of the work done in the last {last_days} days."
     )
